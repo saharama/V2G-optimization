@@ -7,7 +7,6 @@
 # 
 ############################################
 
-
 from pyomo.environ import (
     AbstractModel, Set, Param, Var, Constraint, 
     Objective, Expression, Reals, NonNegativeReals,
@@ -15,6 +14,41 @@ from pyomo.environ import (
 )
 
 m = AbstractModel()
+
+#####################
+# Parameters
+
+# Timepoints for model
+m.TIMEPOINTS = Set(ordered=True)
+
+# Duration between timepoints (hours)
+m.time_duration = Param(within = Reals)
+
+# Date for each timepoint
+m.date = Param(m.TIMEPOINTS, within = Any)
+
+#list of all dates
+def DATES_rule(m):
+    unique_dates = set(m.date[t] for t in m.TIMEPOINTS)
+    return sorted(unique_dates)
+m.DATES = Set(initialize = DATES_rule)
+
+
+#####################
+# Decision Variables
+
+#####################
+# Objective Function
+
+
+#####################
+# Expressions
+
+#####################
+# Constraints
+
+#####################
+# Solver
 
 #Objective: Optimize ? (cost)
 
