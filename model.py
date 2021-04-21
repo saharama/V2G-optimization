@@ -4,7 +4,8 @@
 # Collaborators: Beck, David;
 #                Leong, Christopher;
 #                Sahara, Matthew W.;
-# 
+# two models? one accounting for generation,
+#             one with curtail data
 ############################################
 
 from pyomo.environ import (
@@ -55,6 +56,7 @@ m.discharge_cost = Param(within = Reals)
 
 # *NEW* curtailed power (MWh)
 
+
 # *NEW* 
 
 # CO2 tons per MWh for each tech
@@ -77,7 +79,7 @@ m.DispatchGen = Var(m.GENERATORS, m.TIMEPOINTS, within = NonNegativeReals)
 m.DispatchLoad = Var(m.TIMEPOINTS)
 
 # *NEW* let model decide how much energy is curtailed
-m.DispatchCurtail = Var(m.TIMEPOINTS)
+#m.DispatchCurtail = Var(m.TIMEPOINTS)
 
 # *NEW* let model decide how much energy is overproduced to curtail
 m.ChargeCurtail = Var(m.TIMEPOINTS)
@@ -118,13 +120,23 @@ def report_results(m):
     print(value(m.co2_total_tons))
 
 # curtail
+def curtailed_energy_rule(m, g, t):
+    total_curtail = (
+        (
+            m.BuildGen[g] * m.max_cf[g,t] - m.DispatchGen[g, t]
+        )
+    )
+    return total_curtail
+m.curtailed_energy = Expression(
+    m.GENERATORS, m.TIMEPOINTS, rule=curtailed_energy_rule
+)
 
 #####################
 # Constraints
 # generated power + curtailed power serves load
 def ServeLoadConstraint_rule(m, t):
     return (
-        sum(m.DispatchGen[g, t] for g in m.GENERATORS) + m.DispatchCurtail[t]
+        sum((m.curtailed_energy[g,t] + m.DispatchGen[g, t] for g in m.GENERATORS)
         ==
         (m.nominal_load[t] + m.DispatchLoad[t] + m.ChargeCurtail[t])
     )
