@@ -1,1 +1,4 @@
-vehicle, starting_capacity
+vehicle_num, starting_capacity, max_capacity
+
+Ex. (delete after)
+Nissan1, 1, 12

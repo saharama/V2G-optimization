@@ -11,7 +11,7 @@
 from pyomo.environ import (
     AbstractModel, Set, Param, Var, Constraint, 
     Objective, Expression, Reals, NonNegativeReals,
-    Any, minimize, value, SolverFactory
+    Any, minimize, value, SolverFactory, NonNegativeIntegers
 )
 
 m = AbstractModel()
@@ -37,6 +37,9 @@ m.DATES = Set(initialize = DATES_rule)
 #list of all generators
 m.GENERATORS = Set()
 
+#list of all vehicle types
+m.VEHICLES = Set()
+
 #maximum capacity factor 
 m.max_cf = Param(m.GENERATORS, m.TIMEPOINTS, default = 1.0, within = Reals)
 
@@ -54,11 +57,15 @@ m.variable_cost_per_mwh = Param(m.GENERATORS, within = Reals)
 # use base costs for charging, find rate for discharging
 m.discharge_cost = Param(within = Reals)
 
-# *NEW* curtailed power (MWh)
+# *NEW* maximum capacity (kWh)
+m.max_capacity = Param(m.VEHICLES, within = Reals)
 
+# *NEW* starting vehicle capacity
+m.start_capacity = Param(m.VEHICLES, within = Reals)
 
-# *NEW* starting capacity (kWh)
-m.starting_capacity = Param(m.VEHICLES, within = Reals)
+# *NEW* define number of vehicles
+m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
+
 
 
 # CO2 tons per MWh for each tech
@@ -67,6 +74,8 @@ m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
 # maximum amount of CO2 defined
 m.co2_baseline_tons = Param(within = Reals)
 m.co2_limit_vs_baseline = Param(mutable = True, within = Reals)
+
+
 
 #####################
 # Decision Variables - what the model can output on its own
@@ -84,6 +93,9 @@ m.DispatchLoad = Var(m.TIMEPOINTS)
 
 # *NEW* let model decide how much energy is curtailed
 #m.DispatchCurtail = Var(m.TIMEPOINTS)
+
+# *NEW* battery capacity factor
+# m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capac)
 
 # *NEW* let model decide how much energy is overproduced to curtail
 m.ChargeCurtail = Var(m.TIMEPOINTS)
@@ -119,7 +131,6 @@ def co2_total_tons_rule(m):
     return total_tons
 m.co2_total_tons = Expression(rule=co2_total_tons_rule)
 
-
 def report_results(m):
     print(value(m.co2_total_tons))
 
@@ -134,6 +145,31 @@ def curtailed_energy_rule(m, g, t):
 m.curtailed_energy = Expression(
     m.GENERATORS, m.TIMEPOINTS, rule=curtailed_energy_rule
 )
+
+# *NEW* total maximum capacity kWh
+def total_max_capacity_rule(m):
+    total_max = sum(
+        m.max_capacity[v] # * m.num_vehicles[v]
+        for v in m.VEHICLES
+    )
+    return total_max
+m.total_max_capacity = Expression(rule = total_max_capacity_rule)
+
+# *NEW* total starting capacity in kwh
+def total_start_capac_rule(m):
+    total_start_capac = sum(
+        m.start_capacity[v]
+        for v in m.VEHICLES
+    )
+    return total_start_capac
+m.total_start_capacity = Expression(rule = total_start_capac_rule)
+
+# *NEW* total battery capacity
+m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capacity)
+
+# *NEW* vehicle storage capacity factor
+#m.vehicle_cf = m.total_start_capac / m.total_max_capacity
+
 
 #####################
 # Constraints
@@ -187,11 +223,15 @@ m.LoadReduction = Constraint(
 
 # Dispatched Curtail power never exceeds
 
-# 
-def VehicleCapacity_rule(m,v,t):
+# total vehicle capacity
+def total_vcapacity_rule(m,v,t):
+    totalcapacity = 
     return(
         m.
     )
+m.total_vcapacity = Constraint(
+    m.TIMEPOINTS, rule = total_vcapacity_rule
+)
 
 
 #####################
