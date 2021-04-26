@@ -57,7 +57,9 @@ m.discharge_cost = Param(within = Reals)
 # *NEW* curtailed power (MWh)
 
 
-# *NEW* 
+# *NEW* starting capacity (kWh)
+m.starting_capacity = Param(m.VEHICLES, within = Reals)
+
 
 # CO2 tons per MWh for each tech
 m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
@@ -77,6 +79,8 @@ m.DispatchGen = Var(m.GENERATORS, m.TIMEPOINTS, within = NonNegativeReals)
 
 # let model decide if/when load is dispatched
 m.DispatchLoad = Var(m.TIMEPOINTS)
+
+# *NEW* let model decide how many of each vehicle exist
 
 # *NEW* let model decide how much energy is curtailed
 #m.DispatchCurtail = Var(m.TIMEPOINTS)
@@ -183,6 +187,12 @@ m.LoadReduction = Constraint(
 
 # Dispatched Curtail power never exceeds
 
+# 
+def VehicleCapacity_rule(m,v,t):
+    return(
+        m.
+    )
+
 
 #####################
 # Solver
@@ -193,7 +203,7 @@ def solve(m, show_details=False):
     opt = SolverFactory("glpk")
     # create a working instance of the model with data from power_plan.dat
     print("loading model data...")
-    instance = m.create_instance("power_plan.dat")
+    instance = m.create_instance("model.dat")
     # solve the model
     print("solving model...")
     results = opt.solve(instance)

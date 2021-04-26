@@ -1,0 +1,27 @@
+# TODO: set the baseline emission level equal to the emissions that occur
+# when the model is solved with no CO2 constraint
+param co2_baseline_tons := 3432147.919766138;
+
+# TODO: try different values of the next two parameters as discussed in the assignment
+param co2_limit_vs_baseline := .5;
+param dispatchable_load_share := 0;
+
+param timepoint_duration := 1.0;
+
+param:  GENERATORS : fixed_cost_per_mw_per_hour  variable_cost_per_mwh  co2_per_mwh :=
+        Solar                             35.82                    0.0          0.0
+        Wind                              21.49                    0.0          0.0
+        Gas                                9.95                   40.0          0.4248;
+
+param:  VEHICLES : max_capacity
+        Nissan               12
+        Outlander            40
+        BMW_330e            7.6
+        BMW_i3               33
+        Mercedes            6.2
+
+load load.csv : TIMEPOINTS=[timepoint] date nominal_load=system_load;
+
+load max_cf.csv : [project, timepoint] max_cf;
+
+load vehicles.csv : VEHICLES=[vehicle] starting_capacity
