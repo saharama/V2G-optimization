@@ -66,8 +66,6 @@ m.start_capacity = Param(m.VEHICLES, within = Reals)
 # *NEW* define number of vehicles
 m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
 
-
-
 # CO2 tons per MWh for each tech
 m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
 
@@ -91,14 +89,14 @@ m.DispatchLoad = Var(m.TIMEPOINTS)
 
 # *NEW* let model decide how many of each vehicle exist
 
-# *NEW* let model decide how much energy is curtailed
-#m.DispatchCurtail = Var(m.TIMEPOINTS)
+# *NEW* let model decide how much energy is dispatched from curtail
+m.DispatchCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
 
 # *NEW* battery capacity factor
 # m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capac)
 
 # *NEW* let model decide how much energy is overproduced to curtail
-m.ChargeCurtail = Var(m.TIMEPOINTS)
+m.ChargeCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
 
 #####################
 # Objective Function
@@ -176,7 +174,7 @@ m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capacity)
 # generated power + curtailed power serves load
 def ServeLoadConstraint_rule(m, t):
     return (
-        sum((m.curtailed_energy[g,t] + m.DispatchGen[g, t] for g in m.GENERATORS)
+        sum(m.DispatchGen[g, t] for g in m.GENERATORS) + m.DispatchCurtail[t]
         ==
         (m.nominal_load[t] + m.DispatchLoad[t] + m.ChargeCurtail[t])
     )
@@ -221,18 +219,31 @@ m.LoadReduction = Constraint(
     m.TIMEPOINTS, rule = LoadReduction_rule
 )
 
-# Dispatched Curtail power never exceeds
-
-# total vehicle capacity
-def total_vcapacity_rule(m,v,t):
-    totalcapacity = 
+# *NEW* Dispatched Curtail power never exceeds available curtailed + charged
+def DispatchedCurtail_rule(m, t):
     return(
-        m.
+        0 <= m.DispatchCurtail[t] <= m.BatteryCharge[t] + m.ChargeCurtail[t]
     )
-m.total_vcapacity = Constraint(
-    m.TIMEPOINTS, rule = total_vcapacity_rule
+m.DispatchedCurtail = Constraint(
+    m.TIMEPOINTS, rule = DispatchedCurtail_rule
 )
 
+# *NEW* battery charge never goes over mex capacity
+def MaxCapacity_rule(m, t):
+    return(
+        m.max_capacity >= m.BatteryCharge[t] >= 0
+    )
+m.MaxCapacity = Constraint(
+    m.TIMEPOINTS, rule = MaxCapacity_rule
+)
+
+def ChargeCurtail_rule(m,t):
+    return(
+        0 <= m.ChargeCurtail[t] <= m.max_capacity - m.BatteryCharge[t]
+    )
+m.ChargeCurtailTF = Constraint(
+    m.TIMEPOINTS, rule = ChargeCurtail_rule
+)
 
 #####################
 # Solver
@@ -302,6 +313,7 @@ def save_hourly_results(instance):
             ["timepoint", "nominal_load", "actual_load"]
             + ["dispatch_" + value(g) for g in instance.GENERATORS]
             + ["curtail_" + value(g) for g in instance.GENERATORS]
+            + ["curtail_charge", "dispatched_charge", "battery_capacity"]
         )
         f.write(csv(header))
         for t in instance.TIMEPOINTS:
@@ -309,7 +321,10 @@ def save_hourly_results(instance):
             load = [instance.nominal_load[t] + instance.DispatchLoad[t]]
             gen = [instance.DispatchGen[g, t] for g in instance.GENERATORS]
             curtail = [instance.curtailed_energy[g, t] for g in instance.GENERATORS]
-            f.write(csv(basic + load + gen + curtail))
+            cur_charge = [instance.ChargeCurtail[t]]
+            dis_charge = [instance.DispatchCurtail[t]]
+            bat_capac = [instance.BatteryCharge[t]]
+            f.write(csv(basic + load + gen + curtail + cur_charge + dis_charge + bat_capac))
 
 
 #only runs when model is run on its own
