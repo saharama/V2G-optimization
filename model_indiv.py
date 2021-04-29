@@ -6,6 +6,7 @@
 #                Sahara, Matthew W.;
 # two models? one accounting for generation,
 #             one with curtail data
+# account for each individual vehicle
 ############################################
 
 from pyomo.environ import (
@@ -55,17 +56,16 @@ m.variable_cost_per_mwh = Param(m.GENERATORS, within = Reals)
 
 # *NEW* costs of owning and operating each V2G station (will this be necessary?)
 # use base costs for charging, find rate for discharging
-# m.discharge_cost = Param(within = Reals)
-
-# *NEW* starting vehicle capacity
-m.starting_capacity = Param(m.VEHICLES, within = Reals)
+m.discharge_cost = Param(within = Reals)
 
 # *NEW* maximum capacity (kWh)
 m.max_capacity = Param(m.VEHICLES, within = Reals)
 
+# *NEW* starting vehicle capacity
+m.start_capacity = Param(m.VEHICLES, within = Reals)
 
 # *NEW* define number of vehicles
-#m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
+m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
 
 # CO2 tons per MWh for each tech
 m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
@@ -91,13 +91,13 @@ m.DispatchLoad = Var(m.TIMEPOINTS)
 # *NEW* let model decide how many of each vehicle exist
 
 # *NEW* let model decide how much energy is dispatched from curtail
-m.DispatchCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
+m.DispatchCurtail = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
 
 # *NEW* battery capacity factor
 # m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capac)
 
 # *NEW* let model decide how much energy is overproduced to curtail
-m.ChargeCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
+m.ChargeCurtail = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
 
 #####################
 # Objective Function
@@ -157,14 +157,14 @@ m.total_max_capacity = Expression(rule = total_max_capacity_rule)
 # *NEW* total starting capacity in kwh
 def total_start_capac_rule(m):
     total_start_capac = sum(
-        m.starting_capacity[v]
+        m.start_capacity[v]
         for v in m.VEHICLES
     )
     return total_start_capac
 m.total_start_capacity = Expression(rule = total_start_capac_rule)
 
 # *NEW* total battery capacity
-m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capacity)
+m.BatteryCharge = Var(m.VEHICLES, m.TIMEPOINTS, initialize = m.total_start_capacity)
 
 # *NEW* vehicle storage capacity factor
 #m.vehicle_cf = m.total_start_capac / m.total_max_capacity
@@ -223,24 +223,24 @@ m.LoadReduction = Constraint(
 # *NEW* Dispatched Curtail power never exceeds available curtailed + charged
 def DispatchedCurtail_rule(m, t):
     return(
-        m.DispatchCurtail[t] <= m.BatteryCharge[t] + m.ChargeCurtail[t]
+        0 <= m.DispatchCurtail[t] <= m.BatteryCharge[t] + m.ChargeCurtail[t]
     )
 m.DispatchedCurtail = Constraint(
     m.TIMEPOINTS, rule = DispatchedCurtail_rule
 )
 
 # *NEW* battery charge never goes over mex capacity
-def MaxCapacity_rule(m,t):
+def MaxCapacity_rule(m, t):
     return(
-        m.BatteryCharge[t] <= m.total_max_capacity
+        m.max_capacity >= m.BatteryCharge[t] >= 0
     )
-m.MaxCapacityTF = Constraint(
+m.MaxCapacity = Constraint(
     m.TIMEPOINTS, rule = MaxCapacity_rule
 )
 
 def ChargeCurtail_rule(m,t):
     return(
-        m.ChargeCurtail[t] <= m.total_max_capacity - m.BatteryCharge[t]
+        0 <= m.ChargeCurtail[t] <= m.max_capacity - m.BatteryCharge[t]
     )
 m.ChargeCurtailTF = Constraint(
     m.TIMEPOINTS, rule = ChargeCurtail_rule

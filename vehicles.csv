@@ -1,4 +1,3 @@
-vehicle_num, starting_capacity, max_capacity
-
-Ex. (delete after)
-Nissan1, 1, 12
+vehicle_num,starting_capacity,max_capacity
+Nissan1,1,12
+Nissan2,2,12

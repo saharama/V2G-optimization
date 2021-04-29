@@ -13,15 +13,9 @@ param:  GENERATORS : fixed_cost_per_mw_per_hour  variable_cost_per_mwh  co2_per_
         Wind                              21.49                    0.0          0.0
         Gas                                9.95                   40.0          0.4248;
 
-param:  VEHICLES : max_capacity
-        Nissan               12
-        Outlander            40
-        BMW_330e            7.6
-        BMW_i3               33
-        Mercedes            6.2
 
 load load.csv : TIMEPOINTS=[timepoint] date nominal_load=system_load;
 
 load max_cf.csv : [project, timepoint] max_cf;
 
-load vehicles.csv : VEHICLES=[vehicle] starting_capacity
+load vehicles.csv : VEHICLES=[vehicle_num] starting_capacity max_capacity;
