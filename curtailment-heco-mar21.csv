@@ -1,3 +1,16 @@
-vehicle_num,starting_capacity,max_capacity
-Nissan1,1,12
-Nissan2,2,12
+Start Date/Time,Curtialment Set Point,MW output prior to start of curtailment,End Date/Time,MW output after curtailment released,Estimated MWh of curtialed energy during event (1),IPP/Facility,Reason for Curtailment
+03/01/21 06:14,0,0,03/01/21 06:11,0,*,North,System Contraints
+03/01/21 06:16,0,0,03/01/21 06:12,0,,South,System Contraints
+03/01/21 06:18,0,0,,0,,MFO,System Contraints
+03/01/21 06:14,0,13.6,,0,,KWMakai,System Contraints
+03/01/21 06:31,0,30,,0,,KWMakai,System Contraints
+03/01/21 06:31,0,0,,0,,KSMakai,System Contraints
+03/01/21 06:50,0,0,,0,,KSMauka,System Contraints
+03/01/21 06:51,0,0,,0,,KWF,System Contraints
+03/01/21 08:07,0,17.4,,0,,KWMakai,System Contraints
+03/01/21 13:49,0,1.81,,0,,KSMakai,System Contraints
+03/01/21 13:54,0,11.9,,0,,KWF,System Contraints
+03/01/21 14:00,0,0,,0,136.47,WestL,System Contraints
+03/01/21 05:59,0,0,,0,,MFO,System Contraints
+03/01/21 06:51,0,10,,0,,KWF,System Contraints
+03/01/21 06:57,0,10,,0,,KWMakai,System Contraints
