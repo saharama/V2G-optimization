@@ -34,14 +34,8 @@ def DATES_rule(m):
     return sorted(unique_dates)
 m.DATES = Set(initialize = DATES_rule)
 
-#list of all generators
-m.GENERATORS = Set()
-
 #list of all vehicle types
 m.VEHICLES = Set()
-
-#maximum capacity factor 
-m.max_cf = Param(m.GENERATORS, m.TIMEPOINTS, default = 1.0, within = Reals)
 
 # amount of load to be served each timepoint
 m.nominal_load = Param(m.TIMEPOINTS, within = Reals)
@@ -49,100 +43,43 @@ m.nominal_load = Param(m.TIMEPOINTS, within = Reals)
 # load shifting
 m.dispatchable_load_share = Param(mutable = True, within = Reals)
 
-# costs of owning and operating each generator tech
-m.fixed_cost_per_mw_per_hour = Param(m.GENERATORS, within = Reals)
-m.variable_cost_per_mwh = Param(m.GENERATORS, within = Reals)
-
-# *NEW* costs of owning and operating each V2G station (will this be necessary?)
-# use base costs for charging, find rate for discharging
-# m.discharge_cost = Param(within = Reals)
-
 # *NEW* starting vehicle capacity
 m.starting_capacity = Param(m.VEHICLES, within = Reals)
 
 # *NEW* maximum capacity (kWh)
 m.max_capacity = Param(m.VEHICLES, within = Reals)
 
-# *NEW* define number of vehicles
-#m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
-
-# CO2 tons per MWh for each tech
-m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
-
-# maximum amount of CO2 defined
-m.co2_baseline_tons = Param(within = Reals)
-m.co2_limit_vs_baseline = Param(mutable = True, within = Reals)
-
+# *NEW* curtailed pass through
+m.curtailed_energy = Param(m.TIMEPOINTS, within = Reals)
 
 
 #####################
 # Decision Variables - what the model can output on its own
 
-# how much of each generator to build (MW) (maximum)
-m.BuildGen = Var(m.GENERATORS, within = NonNegativeReals)
-
-# power dispatched from each gen each hour (MW)
-m.DispatchGen = Var(m.GENERATORS, m.TIMEPOINTS, within = NonNegativeReals)
-
 # let model decide if/when load is dispatched
 m.DispatchLoad = Var(m.TIMEPOINTS)
 
 # *NEW* let model decide how many of each vehicle exist
+m.VehicleCount = Var(m.VEHICLES, within = NonNegativeIntegers)
 
 # *NEW* let model decide how much energy is dispatched from curtail
 m.DispatchCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
 
-# *NEW* battery capacity factor
-# m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capac)
-
-# *NEW* let model decide how much energy is overproduced to curtail
-m.ChargeCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
-
 #####################
 # Objective Function
-def AverageCost_rule(m):
-    total_cost = sum(
+def TotalVehicles_rule(m):
+    total_vehicles = sum(
         (
             m.fixed_cost_per_mw_per_hour[g] * m.BuildGen[g] +
             m.variable_cost_per_mwh[g] * (m.DispatchGen[g,t] + m.ChargeCurtail[t])
         )
         for t in m.TIMEPOINTS for g in m.GENERATORS
     )
-    total_load = sum(
-        m.nominal_load[t]*m.timepoint_duration
-        for t in m.TIMEPOINTS
-    )
     return total_cost / total_load
-m.AverageCost = Objective(rule = AverageCost_rule, sense = minimize)
+m.TotalVehicles = Objective(rule = TotalVehicles_rule, sense = minimize)
 
 #####################
 # Expressions
-
-#total CO2 emitted
-def co2_total_tons_rule(m):
-    total_tons = sum(
-        (
-            m.co2_per_mwh[g] * m.DispatchGen[g, t] * m.timepoint_duration
-        )
-        for g in m.GENERATORS for t in m.TIMEPOINTS
-    )
-    return total_tons
-m.co2_total_tons = Expression(rule=co2_total_tons_rule)
-
-def report_results(m):
-    print(value(m.co2_total_tons))
-
-# curtail
-def curtailed_energy_rule(m, g, t):
-    total_curtail = (
-        (
-            m.BuildGen[g] * m.max_cf[g,t] - m.DispatchGen[g, t]
-        )
-    )
-    return total_curtail
-m.curtailed_energy = Expression(
-    m.GENERATORS, m.TIMEPOINTS, rule=curtailed_energy_rule
-)
 
 # *NEW* total maximum capacity kWh
 def total_max_capacity_rule(m):
@@ -171,53 +108,6 @@ m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capacity)
 
 #####################
 # Constraints
-# generated power + curtailed power serves load
-def ServeLoadConstraint_rule(m, t):
-    return (
-        sum(m.DispatchGen[g, t] for g in m.GENERATORS) + m.DispatchCurtail[t]
-        ==
-        (m.nominal_load[t] + m.DispatchLoad[t] + m.ChargeCurtail[t])
-    )
-m.ServeLoadConstraint = Constraint(
-    m.TIMEPOINTS, rule=ServeLoadConstraint_rule
-)
-
-# dispatched generated power must be less than what exists
-def MaxOutputConstraint_rule(m, g, t):
-    return (
-        m.DispatchGen[g, t] <= m.BuildGen[g] * m.max_cf[g, t]
-    )
-m.MaxOutputConstraint = Constraint(
-    m.GENERATORS, m.TIMEPOINTS, rule=MaxOutputConstraint_rule
-)
-
-# emitted CO2 must be less than what's allowed
-def LimitCO2_rule(m):
-    return (m.co2_total_tons <= m.co2_baseline_tons * m.co2_limit_vs_baseline)
-m.LimitCO2 = Constraint(rule=LimitCO2_rule)
-
-# DispatchLoad does not change total load served in the day
-def NoDailyLoadChange_rule(m, d):
-    return (
-        sum(
-            m.DispatchLoad[t]
-            for t in m.TIMEPOINTS if m.date[t] == d
-        )
-        ==
-        0
-    )
-m.NoDailyLoadChange = Constraint(
-    m.DATES, rule= NoDailyLoadChange_rule
-)
-
-# DispatchLoad never exceeds that which is allowed
-def LoadReduction_rule(m, t):
-    return(
-        m.DispatchLoad[t] >= -(m.dispatchable_load_share * m.nominal_load[t])
-    )
-m.LoadReduction = Constraint(
-    m.TIMEPOINTS, rule = LoadReduction_rule
-)
 
 # *NEW* Dispatched Curtail power never exceeds available curtailed + charged
 def DispatchedCurtail_rule(m, t):

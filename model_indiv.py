@@ -65,7 +65,7 @@ m.max_capacity = Param(m.VEHICLES, within = Reals)
 m.start_capacity = Param(m.VEHICLES, within = Reals)
 
 # *NEW* define number of vehicles
-m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
+#m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
 
 # CO2 tons per MWh for each tech
 m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
@@ -86,9 +86,10 @@ m.BuildGen = Var(m.GENERATORS, within = NonNegativeReals)
 m.DispatchGen = Var(m.GENERATORS, m.TIMEPOINTS, within = NonNegativeReals)
 
 # let model decide if/when load is dispatched
-m.DispatchLoad = Var(m.TIMEPOINTS)
+m.DispatchLoad = Var(m.TIMEPOINTS, within = Reals)
 
 # *NEW* let model decide how many of each vehicle exist
+m.NumVehicles = Var(m.VEHICLES, within = NonNegativeIntegers)
 
 # *NEW* let model decide how much energy is dispatched from curtail
 m.DispatchCurtail = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
