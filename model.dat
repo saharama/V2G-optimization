@@ -3,7 +3,7 @@
 param co2_baseline_tons := 6771.359489411948;
 
 # TODO: try different values of the next two parameters as discussed in the assignment
-param co2_limit_vs_baseline := 0.5;
+param co2_limit_vs_baseline := 0.2;
 param dispatchable_load_share := 0.0;
 param min_battery_capacity := 0.7;
 param discharge_cost := 0.0;
