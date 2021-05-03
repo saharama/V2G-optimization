@@ -32,7 +32,7 @@ for line in fin:
 		# random number/load generation
 		rng = np.random.default_rng()
 		rfloat = rng.random()
-		cos_meathead = [0,0,0,0,0.5,0.85,1,1,0.85,0.5,0,0]
+		cos_meathead = [0,0,0,0.5,0.85,1,1,1,0.85,0.5,0,0]
 		time_index = int(timedate[8:10])
 		print(rfloat)
 		if time_index > 18 or time_index < 6:
