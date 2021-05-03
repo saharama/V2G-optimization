@@ -153,7 +153,7 @@ def total_max_capacity_rule(m):
         for v in m.VEHICLES
     )
     return total_max
-m.total_max_capacity = Expression(rule = total_max_capacity_rule)
+m.total_max_capacity = Expression(m.TIMEPOINTS, rule = total_max_capacity_rule)
 
 # *NEW* total starting capacity in kwh
 def total_start_capac_rule(m):

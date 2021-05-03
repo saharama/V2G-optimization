@@ -1,3 +1,7 @@
-vehicle_num,starting_capacity,max_capacity
-Nissan1,1,12
-Nissan2,2,12
+vehicle,vehicle_num,max_capacity,starting_capacity
+Tesla_M3,4367,83,0
+Tesla_MX,1282,75,0
+Chevy_B,858,66,0
+Tesla_MS,2391,90,0
+Nissan_L,2091,40,0
+

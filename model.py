@@ -55,7 +55,7 @@ m.variable_cost_per_mwh = Param(m.GENERATORS, within = Reals)
 
 # *NEW* costs of owning and operating each V2G station (will this be necessary?)
 # use base costs for charging, find rate for discharging
-# m.discharge_cost = Param(within = Reals)
+m.discharge_cost = Param(mutable = True, within = Reals)
 
 # *NEW* starting vehicle capacity
 m.starting_capacity = Param(m.VEHICLES, within = Reals)
@@ -63,8 +63,11 @@ m.starting_capacity = Param(m.VEHICLES, within = Reals)
 # *NEW* maximum capacity (kWh)
 m.max_capacity = Param(m.VEHICLES, within = Reals)
 
+# *NEW* minimum total battery capacity factor
+m.min_battery_capacity = Param(mutable = True, within = Reals)
+
 # *NEW* define number of vehicles
-#m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
+m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
 
 # CO2 tons per MWh for each tech
 m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
@@ -72,8 +75,6 @@ m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
 # maximum amount of CO2 defined
 m.co2_baseline_tons = Param(within = Reals)
 m.co2_limit_vs_baseline = Param(mutable = True, within = Reals)
-
-
 
 #####################
 # Decision Variables - what the model can output on its own
@@ -85,15 +86,10 @@ m.BuildGen = Var(m.GENERATORS, within = NonNegativeReals)
 m.DispatchGen = Var(m.GENERATORS, m.TIMEPOINTS, within = NonNegativeReals)
 
 # let model decide if/when load is dispatched
-m.DispatchLoad = Var(m.TIMEPOINTS)
-
-# *NEW* let model decide how many of each vehicle exist
+m.DispatchLoad = Var(m.TIMEPOINTS, within = Reals)
 
 # *NEW* let model decide how much energy is dispatched from curtail
 m.DispatchCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
-
-# *NEW* battery capacity factor
-# m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capac)
 
 # *NEW* let model decide how much energy is overproduced to curtail
 m.ChargeCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
@@ -105,6 +101,7 @@ def AverageCost_rule(m):
         (
             m.fixed_cost_per_mw_per_hour[g] * m.BuildGen[g] +
             m.variable_cost_per_mwh[g] * (m.DispatchGen[g,t] + m.ChargeCurtail[t])
+            + m.discharge_cost * m.DispatchCurtail[t]
         )
         for t in m.TIMEPOINTS for g in m.GENERATORS
     )
@@ -147,18 +144,18 @@ m.curtailed_energy = Expression(
 # *NEW* total maximum capacity kWh
 def total_max_capacity_rule(m):
     total_max = sum(
-        m.max_capacity[v] # * m.num_vehicles[v]
+        m.max_capacity[v] * m.num_vehicles[v] 
         for v in m.VEHICLES
-    )
+    ) /1000
     return total_max
 m.total_max_capacity = Expression(rule = total_max_capacity_rule)
 
 # *NEW* total starting capacity in kwh
 def total_start_capac_rule(m):
     total_start_capac = sum(
-        m.starting_capacity[v]
+        m.starting_capacity[v] * m.num_vehicles[v]
         for v in m.VEHICLES
-    )
+    ) /1000
     return total_start_capac
 m.total_start_capacity = Expression(rule = total_start_capac_rule)
 
@@ -167,7 +164,6 @@ m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capacity)
 
 # *NEW* vehicle storage capacity factor
 #m.vehicle_cf = m.total_start_capac / m.total_max_capacity
-
 
 #####################
 # Constraints
@@ -219,6 +215,15 @@ m.LoadReduction = Constraint(
     m.TIMEPOINTS, rule = LoadReduction_rule
 )
 
+# Curtail energy rule
+def CurtailEnergy_rule(m,t):
+    return(
+        m.ChargeCurtail[t] <= m.curtailed_energy
+    )
+m.CurtailEnergy = Constraint(
+    m.TIMEPOINTS, rule = CurtailEnergy_rule
+)
+
 # *NEW* Dispatched Curtail power never exceeds available curtailed + charged
 def DispatchedCurtail_rule(m, t):
     return(
@@ -228,10 +233,10 @@ m.DispatchedCurtail = Constraint(
     m.TIMEPOINTS, rule = DispatchedCurtail_rule
 )
 
-# *NEW* battery charge never goes over mex capacity
+# *NEW* battery charge never goes over mex capacity or below minimum allowedcapacity
 def MaxCapacity_rule(m,t):
     return(
-        m.BatteryCharge[t] <= m.total_max_capacity
+        (m.BatteryCharge[t] <= m.total_max_capacity) and (m.total_min_capacity * m.total_max_capacity <= m.BatteryCharge[t])
     )
 m.MaxCapacityTF = Constraint(
     m.TIMEPOINTS, rule = MaxCapacity_rule
