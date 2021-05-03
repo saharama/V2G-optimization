@@ -60,6 +60,9 @@ m.discharge_cost = Param(mutable = True, within = Reals)
 # *NEW* maximum capacity (kWh)
 m.max_capacity = Param(m.VEHICLES, within = Reals)
 
+#*NEW* starting_capacity (kWh)
+m.starting_capacity = Param(m.VEHICLES, within = Reals)
+
 # *NEW* minimum total battery capacity factor
 m.min_battery_capacity = Param(mutable = True, within = Reals)
 
@@ -147,24 +150,24 @@ def total_max_capacity_rule(m):
     return total_max
 m.total_max_capacity = Expression(rule = total_max_capacity_rule)
 
-# # *NEW* total starting capacity in kwh
-# def total_start_capac_rule(m):
-#     total_start_capac = sum(
-#         m.starting_capacity[v] * m.num_vehicles[v]
-#         for v in m.VEHICLES
-#     ) /1000
-#     return total_start_capac
-# m.total_start_capacity = Expression(rule = total_start_capac_rule)
+# *NEW* total starting capacity in kwh
+def total_start_capac_rule(m):
+    total_start_capac = sum(
+        m.starting_capacity[v] * m.num_vehicles[v]
+        for v in m.VEHICLES
+    ) /1000
+    return total_start_capac
+m.total_start_capacity = Expression(rule = total_start_capac_rule)
 
 # *NEW* total battery capacity
-m.BatteryCharge = Var(m.TIMEPOINTS, initialize = 0)
+m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capacity)
 
 # *NEW* vehicle storage capacity factor
 #m.vehicle_cf = m.total_start_capac / m.total_max_capacity
 
 #####################
-# Constraints
-# generated power + curtailed power serves load
+#Constraints
+#generated power + curtailed power serves load
 def ServeLoadConstraint_rule(m, t):
     return (
         sum(m.DispatchGen[g, t] for g in m.GENERATORS) + m.DispatchCurtail[t]
@@ -215,7 +218,7 @@ m.LoadReduction = Constraint(
 # Curtail energy rule
 def CurtailEnergy_rule(m,t):
     return(
-        m.ChargeCurtail[t] <= m.curtailed_energy
+        m.ChargeCurtail[t] <= sum(m.curtailed_energy[g,t] for g in m.GENERATORS)
     )
 m.CurtailEnergy = Constraint(
     m.TIMEPOINTS, rule = CurtailEnergy_rule
@@ -233,7 +236,7 @@ m.DispatchedCurtail = Constraint(
 # *NEW* battery charge never goes over mex capacity or below minimum allowedcapacity
 def MaxCapacity_rule(m,t):
     return(
-        (m.BatteryCharge[t] <= m.total_max_capacity) and (m.total_min_capacity * m.total_max_capacity <= m.BatteryCharge[t])
+        (m.BatteryCharge[t] <= m.total_max_capacity) and (m.min_battery_capacity * m.total_max_capacity <= m.BatteryCharge[t])
     )
 m.MaxCapacityTF = Constraint(
     m.TIMEPOINTS, rule = MaxCapacity_rule

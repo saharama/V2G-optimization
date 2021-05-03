@@ -2,10 +2,10 @@
 This script runs the power planning model repeatedly with different
 parameter values.
 """
-from power_plan import *
+from model import *
 
 # create a working version of the model with data from power_plan.dat
-instance = m.create_instance("power_plan.dat")
+instance = m.create_instance("model.dat")
 
 # create a solver object
 opt = SolverFactory("glpk")

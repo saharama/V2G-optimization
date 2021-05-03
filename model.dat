@@ -1,9 +1,9 @@
 # TODO: set the baseline emission level equal to the emissions that occur
 # when the model is solved with no CO2 constraint
-param co2_baseline_tons := 3432147.919766138;
+param co2_baseline_tons := 6771.359489411948;
 
 # TODO: try different values of the next two parameters as discussed in the assignment
-param co2_limit_vs_baseline := 0.5;
+param co2_limit_vs_baseline := .5;
 param dispatchable_load_share := 0.0;
 param min_battery_capacity := 0.5;
 param discharge_cost := 0.0;
@@ -20,4 +20,4 @@ load csv_loads2.csv : TIMEPOINTS=[timepoint] date nominal_load=system_load;
 
 load max_cf.csv : [project, timepoint] max_cf;
 
-load vehicles.csv : VEHICLES=[vehicle] num_vehicles max_capacity;
+load vehicles.csv : VEHICLES=[vehicle] num_vehicles max_capacity starting_capacity;

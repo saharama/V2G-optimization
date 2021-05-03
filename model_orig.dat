@@ -20,4 +20,4 @@ load load_orig.csv : TIMEPOINTS=[timepoint] date nominal_load=system_load;
 
 load max_cf_orig.csv : [project, timepoint] max_cf;
 
-load vehicles.csv : VEHICLES=[vehicle] num_vehicles max_capacity;
+load vehicles.csv : VEHICLES=[vehicle] num_vehicles max_capacity starting_capacity;
