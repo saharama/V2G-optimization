@@ -112,6 +112,9 @@ def AverageCost_rule(m):
     return total_cost / total_load
 m.AverageCost = Objective(rule = AverageCost_rule, sense = minimize)
 
+def report_avgcost(m):
+    print(value(m.AverageCost))
+    
 #####################
 # Expressions
 
