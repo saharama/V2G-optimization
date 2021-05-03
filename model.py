@@ -57,9 +57,6 @@ m.variable_cost_per_mwh = Param(m.GENERATORS, within = Reals)
 # use base costs for charging, find rate for discharging
 m.discharge_cost = Param(mutable = True, within = Reals)
 
-# *NEW* starting vehicle capacity
-m.starting_capacity = Param(m.VEHICLES, within = Reals)
-
 # *NEW* maximum capacity (kWh)
 m.max_capacity = Param(m.VEHICLES, within = Reals)
 
@@ -86,7 +83,7 @@ m.BuildGen = Var(m.GENERATORS, within = NonNegativeReals)
 m.DispatchGen = Var(m.GENERATORS, m.TIMEPOINTS, within = NonNegativeReals)
 
 # let model decide if/when load is dispatched
-m.DispatchLoad = Var(m.TIMEPOINTS, within = Reals)
+m.DispatchLoad = Var(m.TIMEPOINTS)
 
 # *NEW* let model decide how much energy is dispatched from curtail
 m.DispatchCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
@@ -150,17 +147,17 @@ def total_max_capacity_rule(m):
     return total_max
 m.total_max_capacity = Expression(rule = total_max_capacity_rule)
 
-# *NEW* total starting capacity in kwh
-def total_start_capac_rule(m):
-    total_start_capac = sum(
-        m.starting_capacity[v] * m.num_vehicles[v]
-        for v in m.VEHICLES
-    ) /1000
-    return total_start_capac
-m.total_start_capacity = Expression(rule = total_start_capac_rule)
+# # *NEW* total starting capacity in kwh
+# def total_start_capac_rule(m):
+#     total_start_capac = sum(
+#         m.starting_capacity[v] * m.num_vehicles[v]
+#         for v in m.VEHICLES
+#     ) /1000
+#     return total_start_capac
+# m.total_start_capacity = Expression(rule = total_start_capac_rule)
 
 # *NEW* total battery capacity
-m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capacity)
+m.BatteryCharge = Var(m.TIMEPOINTS, initialize = 0)
 
 # *NEW* vehicle storage capacity factor
 #m.vehicle_cf = m.total_start_capac / m.total_max_capacity

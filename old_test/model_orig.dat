@@ -8,12 +8,10 @@ param dispatchable_load_share := 0;
 
 param timepoint_duration := 1.0;
 
-param:  VEHICLES : fixed_cost_per_mw_per_hour  variable_cost_per_mwh  co2_per_mwh :=
-        T_Model3                             35.82                    0.0          0.0
-        T_ModelX                              21.49                    0.0          0.0
-        C_Bolt                                9.95                   40.0          0.4248;
-        T_ModelS
-        N_Leaf
+param:  GENERATORS : fixed_cost_per_mw_per_hour  variable_cost_per_mwh  co2_per_mwh :=
+        Solar                             35.82                    0.0          0.0
+        Wind                              21.49                    0.0          0.0
+        Gas                                9.95                   40.0          0.4248;
 
 
 load load.csv : TIMEPOINTS=[timepoint] date nominal_load=system_load;
