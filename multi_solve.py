@@ -12,6 +12,7 @@ opt = SolverFactory("glpk")
 
 n = 20 # number of carbon caps to consider
 co2_limits = [float(x)/n for x in range(1,n+1)]
+bat_capac = [float(x)/n for x in range(1,n+1)]
 
 # create a new empty results file
 create_summary_results_file()

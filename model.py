@@ -278,6 +278,7 @@ def solve(m, show_details=False):
     print("co2 limit vs baseline: {}".format(value(instance.co2_limit_vs_baseline)))
     print("dispatchable load share: {}".format(value(instance.dispatchable_load_share)))
     print("cost per MWh: {}".format(value(instance.AverageCost)))
+    print("total max battery capacity: {}".format(value(instance.total_max_capacity)))
 
     # return the solved model for further analysis
     return instance
