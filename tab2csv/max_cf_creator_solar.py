@@ -27,10 +27,21 @@ for line in fin:
 		# solar generation must be positive
 		#solar_hour = int(timedate[8:10])
 		
-		scipy.stats.truncnorm
+		# scipy.stats.truncnorm
+		
+		# random number/load generation
+		rng = np.random.default_rng()
+		rfloat = rng.random()
+		cos_meathead = [0,0,0,0,0.35,0.7,1,1,0.7,0.35,0,0]
+		time_index = int(timedate[8:10])
+		print(rfloat)
+		if time_index > 18 or time_index < 6:
+			solar_gen = 0
+		else:
+			solar_gen = rfloat * cos_meathead[int(time_index/2)] 
 
 		# prepare data point
-		textline = ','.join([timepoint,'Solar', str(rando_load)])
+		textline = ','.join([timepoint,'Solar', str(solar_gen)])
 	else:
 		# initialize the first line
 		textline = ','.join([stuff[0],'date',stuff[1]])
