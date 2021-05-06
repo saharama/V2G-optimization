@@ -7,7 +7,8 @@ fin = open("times.csv", "rt")
 #output file to write the result to
 fout = open("month_max_cf_solar.csv", "wt")
 
-i = 0
+fout.write('TIMEPOINT,date,zone_demand_mw' + '\n')
+
 #for each line in the input file
 for line in fin:
 

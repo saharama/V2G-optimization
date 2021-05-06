@@ -3,9 +3,9 @@ import numpy as np
 #input file
 fin = open("times.csv", "rt")
 #output file to write the result to
-fout = open("month_max_cf_wind.csv", "wt")
+fout = open("loads", "wt")
 
-fout.write('TIMEPOINT,date,zone_demand_mw' + '\n')
+fout.write('LOAD_ZONE,TIMEPOINT,zone_demand_mw' + '\n')
 
 #for each line in the input file
 for line in fin:
