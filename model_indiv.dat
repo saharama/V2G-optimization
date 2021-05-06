@@ -21,6 +21,9 @@ param:  VEHICLES : num_vehicles max_capacity starting_capacity :=
         Chevy_B             858           66               0.0
         Tesla_MS           2391           90               0.0
         Nissan_L           2091           40               0.0;
+
+param: BATTERIES : max_capacity :=
+       Battery           
         
 load csv_loads2.csv : TIMEPOINTS=[timepoint] date nominal_load=system_load;
 

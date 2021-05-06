@@ -4,12 +4,13 @@
 # Collaborators: Beck, David;
 #                Leong, Christopher;
 #                Sahara, Matthew W.;
-# two models? one accounting for generation,
-#             one with curtail data
+# improving on old model by adding 
+# car capabilities... hopefully i get this right
+#
 ############################################
 
 from pyomo.environ import (
-    AbstractModel, Set, Param, Var, Constraint, 
+    AbstractModel, Set, Param, Var, Constraint, Boolean
     Objective, Expression, Reals, NonNegativeReals,
     Any, minimize, value, SolverFactory, NonNegativeIntegers
 )
@@ -69,6 +70,9 @@ m.min_battery_capacity = Param(mutable = True, within = Reals)
 # *NEW* define number of vehicles
 m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
 
+# *NEW* is vehicle plugged in or not?
+m.vehicle_state = Param(m.VEHICLES, within = Boolean)
+
 # CO2 tons per MWh for each tech
 m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
 
@@ -89,10 +93,25 @@ m.DispatchGen = Var(m.GENERATORS, m.TIMEPOINTS, within = NonNegativeReals)
 m.DispatchLoad = Var(m.TIMEPOINTS)
 
 # *NEW* let model decide how much energy is dispatched from curtail
-m.DispatchCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
+m.VDispatch = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
 
 # *NEW* let model decide how much energy is overproduced to curtail
-m.ChargeCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
+m.VCharge = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
+
+# *NEW* let model decide how much energy is stored
+m.VStorage = Var(
+    m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals,
+    initialize = m.starting_capacity
+    )
+
+# *NEW* let model decide how much energy is dispatched from curtail
+m.BDispatch = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
+
+# *NEW* let model decide how much energy is overproduced to curtail
+m.BCharge = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
+
+# *NEW* let model decide how much energy is stored
+m.BStorage = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
 
 #####################
 # Objective Function
@@ -114,7 +133,8 @@ m.AverageCost = Objective(rule = AverageCost_rule, sense = minimize)
 
 def report_avgcost(m):
     print(value(m.AverageCost))
-    
+
+
 #####################
 # Expressions
 
@@ -147,23 +167,24 @@ m.curtailed_energy = Expression(
 # *NEW* total maximum capacity kWh
 def total_max_capacity_rule(m):
     total_max = sum(
-        m.max_capacity[v] * m.num_vehicles[v] 
-        for v in m.VEHICLES
+        m.max_capacity[v] for v in m.VEHICLES
     ) /1000
     return total_max
 m.total_max_capacity = Expression(rule = total_max_capacity_rule)
 
-# *NEW* total starting capacity in kwh
-def total_start_capac_rule(m):
-    total_start_capac = sum(
-        m.starting_capacity[v] * m.num_vehicles[v]
-        for v in m.VEHICLES
-    ) /1000
-    return total_start_capac
-m.total_start_capacity = Expression(rule = total_start_capac_rule)
+# # *NEW* total starting capacity in kwh
+# def total_start_capac_rule(m):
+#     total_start_capac = sum(
+#         m.starting_capacity[v] * m.num_vehicles[v]
+#         for v in m.VEHICLES
+#     ) /1000
+#     return total_start_capac
+# m.total_start_capacity = Expression(rule = total_start_capac_rule)
 
-# *NEW* total battery capacity
-m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capacity)
+# # *NEW* total battery capacity
+# m.BatteryCharge = Var(
+#     m.VEHICLES, m.TIMEPOINTS, initialize = m.total_start_capacity
+#     )
 
 # *NEW* vehicle storage capacity factor
 #m.vehicle_cf = m.total_start_capac / m.total_max_capacity
@@ -173,9 +194,11 @@ m.BatteryCharge = Var(m.TIMEPOINTS, initialize = m.total_start_capacity)
 #generated power + curtailed power serves load
 def ServeLoadConstraint_rule(m, t):
     return (
-        sum(m.DispatchGen[g, t] for g in m.GENERATORS) + m.DispatchCurtail[t]
+        sum(m.DispatchGen[g, t] for g in m.GENERATORS) + 
+        sum(m.VDispatch[v,t] for v in m.VEHICLES)
         ==
-        (m.nominal_load[t] + m.DispatchLoad[t] + m.ChargeCurtail[t])
+        (m.nominal_load[t] + m.DispatchLoad[t] + 
+        sum(m.VCharge[v,t] for v in m.VEHICLES)
     )
 m.ServeLoadConstraint = Constraint(
     m.TIMEPOINTS, rule=ServeLoadConstraint_rule
