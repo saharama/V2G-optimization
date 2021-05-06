@@ -2,6 +2,8 @@ import numpy as np
 import math
 from scipy.stats import truncnorm
 
+#input file
+fin = open("tab_loads.txt", "rt")
 #output file to write the result to
 fout = open("max_cf_solar.csv", "wt")
 
@@ -28,15 +30,15 @@ for line in fin:
 		# scipy.stats.truncnorm
 		
 		# random number/load generation
-		rng = np.random.default_rng()
-		rfloat = rng.random()
-		cos_meathead = [0,0,0,0.5,0.85,0.97,1,0.97,0.85,0.5,0,0]
-		time_index = int(timedate[8:10])
-		print(rfloat)
-		if time_index > 18 or time_index < 6:
-			solar_gen = 0
-		else:
-			solar_gen = rfloat * cos_meathead[int(time_index/2)] 
+#		rng = np.random.default_rng()
+#		rfloat = rng.random()
+#		cos_meathead = [0,0,0,0.5,0.85,0.97,1,0.97,0.85,0.5,0,0]
+#		time_index = int(timedate[8:10])
+#		print(rfloat)
+#		if time_index > 18 or time_index < 6:
+#			solar_gen = 0
+#		else:
+#			solar_gen = rfloat * cos_meathead[int(time_index/2)] 
 
 		# prepare data point
 		textline = ','.join([timepoint,'Solar', str(solar_gen)])
@@ -50,5 +52,7 @@ for line in fin:
 
 	#read replace the string and write to output file
 
+#output files
+fin.close()
 #output files
 fout.close()

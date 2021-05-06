@@ -8,7 +8,7 @@ year = '2021'
 month = '06'
 
 # csv header
-fout.write('TIMEPOINT')
+# fout.write('TIMEPOINT' + '\n')
 
 for day in range(32):
 	day_str = day
