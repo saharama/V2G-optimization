@@ -9,6 +9,7 @@ fout.write('TIMEPOINT,date,zone_demand_mw' + '\n')
 
 #for each line in the input file
 for line in fin:
+
 	# read in data like a meathead
 	timepoint = line
 	year = line[0:4]

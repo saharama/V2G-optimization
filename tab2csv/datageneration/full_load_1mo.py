@@ -3,7 +3,7 @@ import numpy as np
 #input file
 fin = open("times.csv", "rt")
 #output file to write the result to
-fout = open("loads", "wt")
+fout = open("loads.csv", "wt")
 
 fout.write('LOAD_ZONE,TIMEPOINT,zone_demand_mw' + '\n')
 
@@ -22,7 +22,15 @@ for line in fin:
 	# random number/load generation
 	rng = np.random.default_rng()
 	rfloat = rng.random()
-	textline = ','.join([timepoint[:-1],'Wind', str(rfloat)])
+	cos_meathead = [0.5,0.5,0.5,0.5,0.5,0.4,0.3,0.5,0.9,1,0.85,0.6]
+	time_index = int(hour)
+	#print(rfloat)
+
+	# estimate of load characteristics based on min/max of 2020 est. load data
+	load = 550 + 700 rfloat * cos_meathead[int(time_index/2)] 
+
+	datepoint_NBC = year + '-' + month + '-' + day
+	textline = ','.join(['Oahu',timepoint[:-1],datepoint_NBC,str(load)])
 
 	fout.write(textline)
 	fout.write('\n')
