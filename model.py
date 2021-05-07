@@ -254,10 +254,10 @@ m.ChargeCurtailTF = Constraint(
 )
 
 def VehicleStorage_rule(m,t):
-    if t == m.TIMEPOINTS.first():
-        prev_charge = m.total_start_capacity
-    else:
-        prev_charge = m.BatteryCharge[m.TIMEPOINTS.prev(t)]
+    # if t == m.TIMEPOINTS.first():
+    #     prev_charge = m.total_start_capacity
+    # else:
+    prev_charge = m.BatteryCharge[m.TIMEPOINTS.prevw(t)]
     return (
         m.BatteryCharge[t] == (prev_charge + m.ChargeCurtail[t] - m.DispatchCurtail[t])
     )
