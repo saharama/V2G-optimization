@@ -15,15 +15,15 @@ param:  GENERATORS : fixed_cost_per_mw_per_hour  variable_cost_per_mwh  co2_per_
         Wind                              21.49                    0.0          0.0
         Gas                                9.95                   40.0          0.4248;
 
-param:  VEHICLES : num_vehicles max_capacity starting_capacity :=
-        Tesla_M3           4367           83               0.0
-        Tesla_MX           1282           75               0.0
-        Chevy_B             858           66               0.0
-        Tesla_MS           2391           90               0.0
-        Nissan_L           2091           40               0.0;
+param:  VEHICLES : num_vehicles max_ev_capacity starting_capacity :=
+        Tesla_M3           4367              83               0.0
+        Tesla_MX           1282              75               0.0
+        Chevy_B             858              66               0.0
+        Tesla_MS           2391              90               0.0
+        Nissan_L           2091              40               0.0;
 
-param: BATTERIES : max_capacity :=
-       Battery           
+param: BATTERIES : max_bat_capacity :=
+       Battery                   75;
         
 load csv_loads2.csv : TIMEPOINTS=[timepoint] date nominal_load=system_load;
 

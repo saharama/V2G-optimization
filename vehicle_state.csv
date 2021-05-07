@@ -1,6 +1,13 @@
-vehicle,num_vehicles,max_capacity,vehicle_state
-Tesla_M3,4367,83,0
-Tesla_MX,1282,75,0
-Chevy_B,858,66,0
-Tesla_MS,2391,90,0
-Nissan_L,2091,40,0
+timepoint,vehicle,starting_capacity,max_capacity,vehicle_state
+2020-01-23 00:00,Tesla_M3_1,0.5,83,0
+2020-01-23 02:00,Tesla_M3_1,0.4,83,0
+2020-01-23 04:00,Tesla_M3_1
+2020-01-23 06:00,Tesla_M3_1
+2020-01-23 08:00,Tesla_M3_1
+2020-01-23 10:00,Tesla_M3_1
+2020-01-23 12:00,Tesla_M3_1
+2020-01-23 14:00,Tesla_M3_1
+2020-01-23 16:00,Tesla_M3_1
+2020-01-23 18:00,Tesla_M3_1
+2020-01-23 20:00,Tesla_M3_1
+2020-01-23 22:00,Tesla_M3_1

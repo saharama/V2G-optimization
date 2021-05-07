@@ -10,7 +10,7 @@
 ############################################
 
 from pyomo.environ import (
-    AbstractModel, Set, Param, Var, Constraint, Boolean
+    AbstractModel, Set, Param, Var, Constraint,
     Objective, Expression, Reals, NonNegativeReals,
     Any, minimize, value, SolverFactory, NonNegativeIntegers
 )
@@ -41,6 +41,12 @@ m.GENERATORS = Set()
 #list of all vehicle types
 m.VEHICLES = Set()
 
+#list of batteries
+m.BATTERIES = Set()
+
+#maximum storage of batteries
+m.max_bat_capacity = Param(m.BATTERIES, within = Reals)
+
 #maximum capacity factor 
 m.max_cf = Param(m.GENERATORS, m.TIMEPOINTS, default = 1.0, within = Reals)
 
@@ -59,13 +65,13 @@ m.variable_cost_per_mwh = Param(m.GENERATORS, within = Reals)
 m.discharge_cost = Param(mutable = True, within = Reals)
 
 # *NEW* maximum capacity (kWh)
-m.max_capacity = Param(m.VEHICLES, within = Reals)
+m.max_ev_capacity = Param(m.VEHICLES, within = Reals)
 
 #*NEW* starting_capacity (kWh)
-m.starting_capacity = Param(m.VEHICLES, within = Reals)
+m.starting_capacity = Param(m.VEHICLES, default = 0, within = Reals)
 
 # *NEW* minimum total ev capacity factor
-m.min_ev_capacity = Param(m.VEHICLES, mutable = True, within = Reals)
+m.min_ev_capacity = Param(mutable = True, within = Reals)
 
 # *NEW* maximum total battery capacity factor
 m.max_battery_capacity = Param(m.VEHICLES, mutable = True, within = Reals)
@@ -74,7 +80,7 @@ m.max_battery_capacity = Param(m.VEHICLES, mutable = True, within = Reals)
 m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
 
 # *NEW* is vehicle plugged in or not?
-m.vehicle_state = Param(m.VEHICLES, m.TIMEPOINTS, within = Boolean)
+m.vehicle_state = Param(m.VEHICLES, m.TIMEPOINTS, default = 1.0, within = Reals)
 
 # CO2 tons per MWh for each tech
 m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
@@ -104,10 +110,8 @@ m.VDispatch = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
 m.VCharge = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
 
 # *NEW* let model decide how much energy is stored
-m.VStorage = Var(
-    m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals,
-    initialize = m.starting_capacity
-    )
+m.VStorage = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
+#initialize = m.starting_capacity)
 
 # *NEW* let model decide how much energy is dispatched from curtail
 m.BDispatch = Var(m.BATTERIES, m.TIMEPOINTS, within = NonNegativeReals)
@@ -124,13 +128,13 @@ def AverageCost_rule(m):
     total_cost = sum(
         (
             m.fixed_cost_per_mw_per_hour[g] * m.BuildGen[g] +
-            m.variable_cost_per_mwh[g] * (m.DispatchGen[g,t] + m.ChargeCurtail[t])
-            + m.discharge_cost * m.DispatchCurtail[t]
+            m.variable_cost_per_mwh[g] * (m.DispatchGen[g,t] + m.VCharge[v,t])
+            + m.discharge_cost * m.VDispatch[v,t]
         )
-        for t in m.TIMEPOINTS for g in m.GENERATORS
+        for t in m.TIMEPOINTS for g in m.GENERATORS for v in m.VEHICLES
     )
     total_load = sum(
-        m.nominal_load[t]*m.timepoint_duration
+        m.nominal_load[t] * m.timepoint_duration
         for t in m.TIMEPOINTS
     )
     return total_cost / total_load
@@ -172,7 +176,7 @@ m.curtailed_energy = Expression(
 # *NEW* total maximum capacity kWh
 def total_max_capacity_rule(m, t):
     total_max = sum(
-        m.max_capacity[v] * m.vehicle_state[v,t] for v in m.VEHICLES
+        m.max_ev_capacity[v] * m.vehicle_state[v,t] for v in m.VEHICLES
     ) /1000
     return total_max
 m.total_max_capacity = Expression(
@@ -189,7 +193,7 @@ m.total_start_capacity = Expression(rule = total_start_capac_rule)
 
 def total_ev_stored_rule(m,t):
     total_capac = sum(
-        m.VStorage[v,t] * m.vehicle_state[v,t] for v in m.VEHICLES
+        (m.VStorage[v,t] * m.vehicle_state[v,t]) for v in m.VEHICLES
     )
     return total_capac
 m.total_ev_stored = Expression(
@@ -212,7 +216,7 @@ def ServeLoadConstraint_rule(m, t):
         sum(m.VDispatch[v,t] for v in m.VEHICLES) +
         sum(m.BDispatch[b,t] for b in m.BATTERIES)
         ==
-        (m.nominal_load[t] + m.DispatchLoad[t] + 
+        (m.nominal_load[t] + m.DispatchLoad[t]) + 
         sum(m.VCharge[v,t] for v in m.VEHICLES)
     )
 m.ServeLoadConstraint = Constraint(
@@ -269,7 +273,7 @@ m.CurtailEnergy = Constraint(
 
 # *NEW* Dispatched vehicle power never exceeds available storage
 #only dispatch if generators produce less than load
-def VehicleDispatch_rule(m, t):
+def VehicleDispatch_rule(m, t): #error
     return(
         (
             sum(m.VDispatch[v,t] for v in m.VEHICLES)
@@ -286,13 +290,13 @@ m.VehicleDispatch = Constraint(
 )
 
 # *NEW* battery charge never goes over mex capacity or below minimum allowedcapacity
-def MaxCapacity_rule(m,t):
+def MaxCapacity_rule(m,t,v):
     return(
         (m.VStorage[v,t] <= m.max_battery_capacity[v]) and 
-        (m.min_battery_capacity[v] * m.max_battery_capacity[v] <= m.VStorage[v,t])
+        (m.min_ev_capacity * m.max_battery_capacity[v] <= m.VStorage[v,t])
     )
 m.MaxCapacityTF = Constraint(
-    m.TIMEPOINTS, rule = MaxCapacity_rule
+    m.TIMEPOINTS, m.VEHICLES, rule = MaxCapacity_rule
 )
 
 # charge never goes above available storage
@@ -305,7 +309,7 @@ m.ChargeCurtailTF = Constraint(
 )
 
 def VehicleStorage_rule(m,v,t):
-    if t = m.TIMEPOINTS.first():
+    if t == m.TIMEPOINTS.first():
         prev_charge = m.starting_capacity[v]
     else:
         prev_charge = m.VStorage[v,m.TIMEPOINTS.prev(t)]
@@ -317,7 +321,7 @@ m.VehicleStorage = Constraint(
 )
 
 def BatteryStorage_rule(m,b,t):
-    if t = m.TIMEPOINTS.first():
+    if t == m.TIMEPOINTS.first():
         prev_charge = 0
     else:
         prev_charge = m.BStorage[b,m.TIMEPOINTS.prev(t)]
@@ -346,7 +350,7 @@ def solve(m, show_details=False):
     opt = SolverFactory("glpk")
     # create a working instance of the model with data from power_plan.dat
     print("loading model data...")
-    instance = m.create_instance("model.dat")
+    instance = m.create_instance("model_indiv.dat")
     # solve the model
     print("solving model...")
     results = opt.solve(instance)
