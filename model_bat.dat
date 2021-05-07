@@ -3,11 +3,11 @@
 param co2_baseline_tons := 6771.359489411948;
 
 # TODO: try different values of the next two parameters as discussed in the assignment
-param co2_limit_vs_baseline := .5;
+param co2_limit_vs_baseline := 1;
 param dispatchable_load_share := 0.0;
 param min_battery_capacity := 0.7;
 param discharge_cost := 20;
-
+param max_bat_capacity := 75.0;
 param timepoint_duration := 1.0;
 
 param:  GENERATORS : fixed_cost_per_mw_per_hour  variable_cost_per_mwh  co2_per_mwh :=
@@ -21,7 +21,7 @@ param:  VEHICLES : num_vehicles max_capacity starting_capacity :=
         Chevy_B             858           66               0.0
         Tesla_MS           2391           90               0.0
         Nissan_L           2091           40               0.0;
-        
+
 load csv_loads2.csv : TIMEPOINTS=[timepoint] date nominal_load=system_load;
 
 load max_cf.csv : [project, timepoint] max_cf;

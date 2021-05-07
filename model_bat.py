@@ -40,6 +40,9 @@ m.GENERATORS = Set()
 #list of all vehicle types
 m.VEHICLES = Set()
 
+#maximum storage of batteries
+m.max_bat_capacity = Param(mutable = True, default = 75.0, within = Reals)
+
 #maximum capacity factor 
 m.max_cf = Param(m.GENERATORS, m.TIMEPOINTS, default = 1.0, within = Reals)
 
@@ -94,13 +97,22 @@ m.DispatchCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
 # *NEW* let model decide how much energy is overproduced to curtail
 m.ChargeCurtail = Var(m.TIMEPOINTS, within = NonNegativeReals)
 
+# *NEW* let model decide how much energy is dispatched from curtail
+m.BDispatch = Var(m.TIMEPOINTS, within = NonNegativeReals)
+
+# *NEW* let model decide how much energy is overproduced to curtail
+m.BCharge = Var(m.TIMEPOINTS, within = NonNegativeReals)
+
+# *NEW* let model decide how much energy is stored
+m.BStorage = Var(m.TIMEPOINTS, within = NonNegativeReals)
+
 #####################
 # Objective Function
 def AverageCost_rule(m):
     total_cost = sum(
         (
             m.fixed_cost_per_mw_per_hour[g] * m.BuildGen[g] +
-            m.variable_cost_per_mwh[g] * (m.DispatchGen[g,t] + m.ChargeCurtail[t])
+            m.variable_cost_per_mwh[g] * (m.DispatchGen[g,t] + m.ChargeCurtail[t] + m.BCharge[t])
             + m.discharge_cost * m.DispatchCurtail[t]
         )
         for t in m.TIMEPOINTS for g in m.GENERATORS
@@ -221,7 +233,7 @@ m.LoadReduction = Constraint(
 # Curtail energy rule
 def CurtailEnergy_rule(m,t):
     return(
-        m.ChargeCurtail[t] <= sum(m.curtailed_energy[g,t] for g in m.GENERATORS)
+        m.ChargeCurtail[t] + m.BCharge[t] <= sum(m.curtailed_energy[g,t] for g in m.GENERATORS)
     )
 m.CurtailEnergy = Constraint(
     m.TIMEPOINTS, rule = CurtailEnergy_rule
@@ -253,13 +265,49 @@ m.ChargeCurtailTF = Constraint(
     m.TIMEPOINTS, rule = ChargeCurtail_rule
 )
 
+def BatteryCharge_rule(m,t):
+    return(
+        m.BCharge[t] <= m.max_bat_capacity - m.BStorage[t]
+    )
+m.BatteryChargeTF = Constraint(
+    m.TIMEPOINTS, rule = BatteryCharge_rule
+)
+
+def BatteryDispatch_rule(m,t):
+    return(
+        (m.BDispatch[t] <= m.BStorage[t]) 
+        and (
+            sum(m.DispatchGen[g, t] for g in m.GENERATORS) 
+            <= m.nominal_load[t]#  + m.DispatchLoad[t]
+        )
+    )
+m.BatteryDispatchTF = Constraint(
+    m.TIMEPOINTS, rule = BatteryDispatch_rule
+)
+
+
+# *NEW* battery charge never goes over mex capacity or below minimum allowedcapacity
+def MaxBatteryCapacity_rule(m,t):
+    return(
+        (m.BStorage[t] <= m.max_bat_capacity)
+    )
+m.MaxBatteryCapacityTF = Constraint(
+    m.TIMEPOINTS, rule = MaxBatteryCapacity_rule
+)
+
 def VehicleStorage_rule(m,t):
-    # if t == m.TIMEPOINTS.first():
-    #     prev_charge = m.total_start_capacity
-    # else:
     prev_charge = m.BatteryCharge[m.TIMEPOINTS.prevw(t)]
     return (
         m.BatteryCharge[t] == (prev_charge + m.ChargeCurtail[t] - m.DispatchCurtail[t])
+    )
+m.VehicleStorage = Constraint(
+    m.TIMEPOINTS, rule = VehicleStorage_rule
+)
+
+def BatteryStorage_rule(m,t):
+    prev_charge = m.BatteryCharge[m.TIMEPOINTS.prevw(t)]
+    return (
+        m.BStorage[t] == (prev_charge + m.BCharge[t] - m.BDispatch[t])
     )
 m.VehicleStorage = Constraint(
     m.TIMEPOINTS, rule = VehicleStorage_rule
@@ -308,15 +356,15 @@ def csv(output):
 # write header to summary file
 def create_summary_results_file():
     with open('results.csv', 'w') as f:
-        f.write("min_battery_capacity,co2_limit_vs_baseline,AverageCost,CO2_total_tons\n")
+        f.write("co2_limit_vs_baseline,dispatchable_load_share,AverageCost,CO2_total_tons\n")
 
 # append results to summary file
 def save_summary_results(instance):
     # add results to the results file
     with open('results.csv', 'a') as f:
         f.write(csv([
-            instance.min_battery_capacity,
             instance.co2_limit_vs_baseline,
+            instance.dispatchable_load_share,
             instance.AverageCost,
             instance.co2_total_tons
         ]))

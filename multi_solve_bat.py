@@ -17,17 +17,17 @@ bat_capacs = [float(x)/n for x in range(1,n+1)]
 # create a new empty results file
 create_summary_results_file()
 
-for dispatchable_load in [0.0, 0.3]:
+for co2_limit in [0.0, 0.25, 0.5, 0.75, 1.0]:
     for bat_capac in bat_capacs:
         # change values for the adjustable parameters
         instance.min_battery_capacity = bat_capac
-        instance.dispatchable_load_share = dispatchable_load
+        instance.co2_limit_vs_baseline = co2_limit
         instance.preprocess()
 
         # solve the model
         print(
-            "solving model with dispatchable_load={dl}, bat_capac={cl}"
-            .format(dl=dispatchable_load, cl=bat_capac)
+            "solving model with co2_limit_vs_baseline={dl}, bat_capac={cl}"
+            .format(dl=co2_limit, cl=bat_capac)
         )
         results = opt.solve(instance)
 
