@@ -64,14 +64,17 @@ m.max_capacity = Param(m.VEHICLES, within = Reals)
 #*NEW* starting_capacity (kWh)
 m.starting_capacity = Param(m.VEHICLES, within = Reals)
 
-# *NEW* minimum total battery capacity factor
-m.min_battery_capacity = Param(mutable = True, within = Reals)
+# *NEW* minimum total ev capacity factor
+m.min_ev_capacity = Param(m.VEHICLES, mutable = True, within = Reals)
+
+# *NEW* maximum total battery capacity factor
+m.max_battery_capacity = Param(m.VEHICLES, mutable = True, within = Reals)
 
 # *NEW* define number of vehicles
 m.num_vehicles = Param(m.VEHICLES, within = NonNegativeIntegers)
 
 # *NEW* is vehicle plugged in or not?
-m.vehicle_state = Param(m.VEHICLES, within = Boolean)
+m.vehicle_state = Param(m.VEHICLES, m.TIMEPOINTS, within = Boolean)
 
 # CO2 tons per MWh for each tech
 m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
@@ -79,6 +82,8 @@ m.co2_per_mwh = Param(m.GENERATORS, within = Reals)
 # maximum amount of CO2 defined
 m.co2_baseline_tons = Param(within = Reals)
 m.co2_limit_vs_baseline = Param(mutable = True, within = Reals)
+
+# 
 
 #####################
 # Decision Variables - what the model can output on its own
@@ -105,13 +110,13 @@ m.VStorage = Var(
     )
 
 # *NEW* let model decide how much energy is dispatched from curtail
-m.BDispatch = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
+m.BDispatch = Var(m.BATTERIES, m.TIMEPOINTS, within = NonNegativeReals)
 
 # *NEW* let model decide how much energy is overproduced to curtail
-m.BCharge = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
+m.BCharge = Var(m.BATTERIES, m.TIMEPOINTS, within = NonNegativeReals)
 
 # *NEW* let model decide how much energy is stored
-m.BStorage = Var(m.VEHICLES, m.TIMEPOINTS, within = NonNegativeReals)
+m.BStorage = Var(m.BATTERIES, m.TIMEPOINTS, within = NonNegativeReals)
 
 #####################
 # Objective Function
@@ -165,22 +170,31 @@ m.curtailed_energy = Expression(
 )
 
 # *NEW* total maximum capacity kWh
-def total_max_capacity_rule(m):
+def total_max_capacity_rule(m, t):
     total_max = sum(
-        m.max_capacity[v] for v in m.VEHICLES
+        m.max_capacity[v] * m.vehicle_state[v,t] for v in m.VEHICLES
     ) /1000
     return total_max
-m.total_max_capacity = Expression(rule = total_max_capacity_rule)
+m.total_max_capacity = Expression(
+    m.TIMEPOINTS, rule = total_max_capacity_rule
+    )
 
-# # *NEW* total starting capacity in kwh
-# def total_start_capac_rule(m):
-#     total_start_capac = sum(
-#         m.starting_capacity[v] * m.num_vehicles[v]
-#         for v in m.VEHICLES
-#     ) /1000
-#     return total_start_capac
-# m.total_start_capacity = Expression(rule = total_start_capac_rule)
+# *NEW* total starting capacity in kwh
+def total_start_capac_rule(m):
+    total_start_capac = sum(
+        m.starting_capacity[v] for v in m.VEHICLES
+    ) /1000
+    return total_start_capac
+m.total_start_capacity = Expression(rule = total_start_capac_rule)
 
+def total_ev_stored_rule(m,t):
+    total_capac = sum(
+        m.VStorage[v,t] * m.vehicle_state[v,t] for v in m.VEHICLES
+    )
+    return total_capac
+m.total_ev_stored = Expression(
+    m.TIMEPOINTS, rule = total_ev_stored_rule
+)
 # # *NEW* total battery capacity
 # m.BatteryCharge = Var(
 #     m.VEHICLES, m.TIMEPOINTS, initialize = m.total_start_capacity
@@ -195,7 +209,8 @@ m.total_max_capacity = Expression(rule = total_max_capacity_rule)
 def ServeLoadConstraint_rule(m, t):
     return (
         sum(m.DispatchGen[g, t] for g in m.GENERATORS) + 
-        sum(m.VDispatch[v,t] for v in m.VEHICLES)
+        sum(m.VDispatch[v,t] for v in m.VEHICLES) +
+        sum(m.BDispatch[b,t] for b in m.BATTERIES)
         ==
         (m.nominal_load[t] + m.DispatchLoad[t] + 
         sum(m.VCharge[v,t] for v in m.VEHICLES)
@@ -244,38 +259,84 @@ m.LoadReduction = Constraint(
 # Curtail energy rule
 def CurtailEnergy_rule(m,t):
     return(
-        m.ChargeCurtail[t] <= sum(m.curtailed_energy[g,t] for g in m.GENERATORS)
+        sum(m.VCharge[v,t] for v in m.VEHICLES) +
+        sum(m.BCharge[b,t] for b in m.BATTERIES)
+        <= sum(m.curtailed_energy[g,t] for g in m.GENERATORS)
     )
 m.CurtailEnergy = Constraint(
     m.TIMEPOINTS, rule = CurtailEnergy_rule
 )
 
-# *NEW* Dispatched Curtail power never exceeds available curtailed + charged
-def DispatchedCurtail_rule(m, t):
+# *NEW* Dispatched vehicle power never exceeds available storage
+#only dispatch if generators produce less than load
+def VehicleDispatch_rule(m, t):
     return(
-        m.DispatchCurtail[t] <= m.BatteryCharge[t] + m.ChargeCurtail[t]
+        (
+            sum(m.VDispatch[v,t] for v in m.VEHICLES)
+            <= m.total_ev_stored[t]
+        )
+        and
+        (
+            sum(m.DispatchGen[g, t] for g in m.GENERATORS) 
+            <= m.nominal_load[t]#  + m.DispatchLoad[t]
+        )
     )
-m.DispatchedCurtail = Constraint(
-    m.TIMEPOINTS, rule = DispatchedCurtail_rule
+m.VehicleDispatch = Constraint(
+    m.TIMEPOINTS, rule = VehicleDispatch_rule
 )
 
 # *NEW* battery charge never goes over mex capacity or below minimum allowedcapacity
 def MaxCapacity_rule(m,t):
     return(
-        (m.BatteryCharge[t] <= m.total_max_capacity) and (m.min_battery_capacity * m.total_max_capacity <= m.BatteryCharge[t])
+        (m.VStorage[v,t] <= m.max_battery_capacity[v]) and 
+        (m.min_battery_capacity[v] * m.max_battery_capacity[v] <= m.VStorage[v,t])
     )
 m.MaxCapacityTF = Constraint(
     m.TIMEPOINTS, rule = MaxCapacity_rule
 )
 
-def ChargeCurtail_rule(m,t):
+# charge never goes above available storage
+def ChargeCurtail_rule(m,v,t):
     return(
-        m.ChargeCurtail[t] <= m.total_max_capacity - m.BatteryCharge[t]
+        m.VCharge[v,t] <= m.max_battery_capacity[v] - m.VStorage[v,t]
     )
 m.ChargeCurtailTF = Constraint(
-    m.TIMEPOINTS, rule = ChargeCurtail_rule
+    m.VEHICLES, m.TIMEPOINTS, rule = ChargeCurtail_rule
 )
 
+def VehicleStorage_rule(m,v,t):
+    if t = m.TIMEPOINTS.first():
+        prev_charge = m.starting_capacity[v]
+    else:
+        prev_charge = m.VStorage[v,m.TIMEPOINTS.prev(t)]
+    return (
+        m.VStorage[v,t] == prev_charge + m.VCharge[v,t] - m.VDispatch[v,t]
+    )
+m.VehicleStorage = Constraint(
+    m.VEHICLES, m.TIMEPOINTS, rule = VehicleStorage_rule
+)
+
+def BatteryStorage_rule(m,b,t):
+    if t = m.TIMEPOINTS.first():
+        prev_charge = 0
+    else:
+        prev_charge = m.BStorage[b,m.TIMEPOINTS.prev(t)]
+    return (
+        m.BStorage[b,t] == prev_charge + m.BCharge[b,t] - m.BDispatch[b,t]
+    )
+m.BatteryStorage = Constraint(
+    m.BATTERIES, m.TIMEPOINTS, rule = BatteryStorage_rule
+)
+
+# #no charge when unneeded
+# def BatteryHealth_rule(m,t):
+#     if sum(m.DispatchGen[g,t] for g in m.GENERATORS) <= (m.nominal_load[t] + m.DispatchLoad[t]):
+#         return(
+
+#         )
+# m.BatteryHealth = Constraint(
+#     m.TIMEPOINTS, rule = BatteryHealth_rule
+# )
 #####################
 # Solver
 
