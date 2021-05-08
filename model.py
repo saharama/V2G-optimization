@@ -316,7 +316,7 @@ def save_summary_results(instance):
     with open('results.csv', 'a') as f:
         f.write(csv([
             instance.min_battery_capacity,
-            instance.co2_limit_vs_baseline,
+            instance.co2_limit_vs_baseline ,
             instance.AverageCost,
             instance.co2_total_tons
         ]))
@@ -324,9 +324,9 @@ def save_summary_results(instance):
 # create hourly data, write to hourly data
 def save_hourly_results(instance):
     # create a file showing the hourly operation of each generation project
-    output_file = 'dispatch_{}_co2_{}_dr.csv'.format(
-        value(instance.co2_limit_vs_baseline),
-        value(instance.dispatchable_load_share)
+    output_file = 'bat_{}_co2_{}_dr.csv'.format(
+        value(instance.min_battery_capacity),
+        value(instance.co2_limit_vs_baseline)
     )
     with open(output_file, 'w') as f:
         # note: in Python, the `+` operator concatenates lists
